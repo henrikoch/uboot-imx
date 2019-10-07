@@ -35,6 +35,8 @@
 
 #include "mx6var_eeprom_v2.h"
 
+#include "NHD_3_5_320240MF_ATX_x_external_define.h" // Define for NH Display Configuration
+
 DECLARE_GLOBAL_DATA_PTR;
 
 #define DDR0_CS0_END 0x021b0040
@@ -487,9 +489,106 @@ static void print_emmc_size(void)
 
 #ifdef CONFIG_VIDEO_MXS
 
+#ifdef CONFIG_SPI1_LCD_CONFIG
+static iomux_v3_cfg_t const lcdspi_pads[]= {
+    MX6_PAD_CSI_DATA07__ECSPI1_MISO | MUX_PAD_CTRL(NO_PAD_CTRL),
+    MX6_PAD_CSI_DATA06__ECSPI1_MOSI | MUX_PAD_CTRL(NO_PAD_CTRL),
+    MX6_PAD_CSI_DATA04__ECSPI1_SCLK | MUX_PAD_CTRL(NO_PAD_CTRL),
+    MX6_PAD_CSI_DATA05__ECSPI1_SS0 | MUX_PAD_CTRL(NO_PAD_CTRL),
+};
+
+struct cspi_regs *ecspi1 = (struct cspi_regs *)ECSPI1_BASE_ADDR;
 
 
-/* LCD iomux for 24 bits RGB and 8 bits bus-width
+
+//write register to lcd using SPI ECSPI1
+void write_command(uint32_t Register, uint32_t Data)
+{
+	while (readl(&ecspi1->stat) & (1<<2))
+		udelay(10);
+
+	writel(((Register | SPI_WRITE) <<8) | Data,&ecspi1->txdata);
+}
+
+void setup_lcd_spi(void) {
+    struct mxc_ccm_reg *ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;
+    int reg;
+  //  reg=readl(&ecspi1->ctrl);
+   // writel(reg&0xFFFFFFFE,&ecspi1->ctrl);
+	// SPI TIMING IS IN CHAPTER 18 of Linux Reference Manual (details about clock in 18.6.24, page 683/3619)
+  //  reg=readl(&ccm->CCGR1); // CCGR1 is Clock Gating Register for SPI
+   // printf("CCM->CCGR1: %8x\n",readl(&ccm->CCGR1));
+    // Enable ECSPI1 Clock Gate in CG0 position (first two bits).
+  //  writel(reg|(3),&ccm->CCGR1);
+    // Burst length=15 (16? bits per TX)
+    // Channel select=0 (SS0)
+    // SPI_RDY=Don't Care
+    // Pre-divide=2 (divide by 3)
+    // Post-divide=1 (divide by 2) -> 10 MHz from 60 MHz clock?
+    // Channel_Mode[0]=1 Master
+    // SMC=1 Start on TXFIFO write
+    // SPI_XCHG=Don't care
+    // HT=Don't care
+    // EN=1 Enable block
+    printf("ECSPI1->CONREG: %8x\n",readl(&ecspi1->ctrl));
+    reg=15<<20 | 0<<18 | 0<<16 | 14<<12 | 0<<8 | 1<<4 | 1<<3 | 0<<2 | 0<<1 | 1<<0;
+    writel(reg,&ecspi1->ctrl);
+    printf("ECSPI1->CONREG: %8x\n",readl(&ecspi1->ctrl));
+
+    reg=readl(&ecspi1->cfg);
+    writel(reg | 0xFF,&ecspi1->cfg);
+
+    imx_iomux_v3_setup_multiple_pads(lcdspi_pads, ARRAY_SIZE(lcdspi_pads));
+
+    printf("Configured LCD SPI\n");
+    printf("ECSPI1->CONREG: %8x\n",readl(&ecspi1->ctrl));
+    printf("ECSPI1->CONFIGREG: %8x\n",readl(&ecspi1->cfg));
+    printf("ECSPI1->STATREG: %8x\n",readl(&ecspi1->stat));
+
+}
+
+void configure_lcd(void) {
+
+
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R00,NHD_3_5_320240MF_ATX_X__REGISTER_R00_RESET_VALUE);  // 0x03 reset       0x00 << 02      1 << 1
+	udelay(100);
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R01,NHD_3_5_320240MF_ATX_X__REGISTER_R01_RESET_VALUE);  
+	udelay(100);
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R02,NHD_3_5_320240MF_ATX_X__REGISTER_R02_RESET_VALUE);  
+	udelay(100);
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R03,NHD_3_5_320240MF_ATX_X__REGISTER_R03_RESET_VALUE);  
+	udelay(100);
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R04,NHD_3_5_320240MF_ATX_X__REGISTER_R04_RESET_VALUE);  
+	udelay(100);
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R05,NHD_3_5_320240MF_ATX_X__REGISTER_R05_RESET_VALUE);  
+	udelay(100);
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R07,NHD_3_5_320240MF_ATX_X__REGISTER_R07_RESET_VALUE);  // Note: R06 config is commented in QXT code
+	udelay(100);
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R08,NHD_3_5_320240MF_ATX_X__REGISTER_R08_RESET_VALUE); 
+ 	udelay(100);
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R09,NHD_3_5_320240MF_ATX_X__REGISTER_R09_RESET_VALUE);  
+	udelay(100);	
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R0B,NHD_3_5_320240MF_ATX_X__REGISTER_R0B_RESET_VALUE);  
+	udelay(100);
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R0C,NHD_3_5_320240MF_ATX_X__REGISTER_R0C_RESET_VALUE);  
+	udelay(100);
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R0D,NHD_3_5_320240MF_ATX_X__REGISTER_R0D_RESET_VALUE);  
+	udelay(100);
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R10,NHD_3_5_320240MF_ATX_X__REGISTER_R10_RESET_VALUE);  
+	udelay(100);
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R11,NHD_3_5_320240MF_ATX_X__REGISTER_R11_RESET_VALUE);  
+	udelay(100);
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R12,NHD_3_5_320240MF_ATX_X__REGISTER_R12_RESET_VALUE); 
+	udelay(100);
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R1E,NHD_3_5_320240MF_ATX_X__REGISTER_R1E_RESET_VALUE);  
+	udelay(100);
+ 	write_command(NHD_3_5_320240MF_ATX_X__REGISTER_R20,NHD_3_5_320240MF_ATX_X__REGISTER_R20_RESET_VALUE); 
+	udelay(100);
+
+}
+
+
+/* LCD for 24 bits NH Display with 8 bus-width */
 static iomux_v3_cfg_t const lcd_pads[] = {
 	MX6_PAD_LCD_CLK__LCDIF_CLK | MUX_PAD_CTRL(LCD_PAD_CTRL),
 	MX6_PAD_LCD_ENABLE__LCDIF_ENABLE | MUX_PAD_CTRL(LCD_PAD_CTRL),
@@ -521,11 +620,116 @@ static iomux_v3_cfg_t const lcd_pads[] = {
 	MX6_PAD_LCD_DATA23__GPIO3_IO28 | MUX_PAD_CTRL(NO_PAD_CTRL),
 
 };
-*/
 
 
 
-/* LCD iomux for 24 bits RGB and 24 bits bus-width */
+
+void disable_unused_LCD_output()
+{
+	
+	gpio_request(IMX_GPIO_NR(3, 13), "GPIO3_IO13_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 13), 0);
+
+	gpio_request(IMX_GPIO_NR(3, 14), "GPIO3_IO14_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 14), 0);
+
+	gpio_request(IMX_GPIO_NR(3, 15), "GPIO3_IO15_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 15), 0);
+
+	gpio_request(IMX_GPIO_NR(3, 16), "GPIO3_IO16_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 16), 0);
+
+	gpio_request(IMX_GPIO_NR(3, 17), "GPIO3_IO17_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 17), 0);
+
+	gpio_request(IMX_GPIO_NR(3, 18), "GPIO3_IO18_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 18), 0);
+
+	gpio_request(IMX_GPIO_NR(3, 19), "GPIO3_IO19_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 19), 0);
+
+	gpio_request(IMX_GPIO_NR(3, 20), "GPIO3_IO20_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 20), 0);
+
+	gpio_request(IMX_GPIO_NR(3, 21), "GPIO3_IO21_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 21), 0);
+
+	gpio_request(IMX_GPIO_NR(3, 22), "GPIO3_IO22_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 22), 0);
+
+	gpio_request(IMX_GPIO_NR(3, 23), "GPIO3_IO23_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 23), 0);
+
+	gpio_request(IMX_GPIO_NR(3, 24), "GPIO3_IO24_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 24), 0);
+
+	gpio_request(IMX_GPIO_NR(3, 25), "GPIO3_IO25_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 25), 0);
+
+	gpio_request(IMX_GPIO_NR(3, 26), "GPIO3_IO26_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 26), 0);
+
+	gpio_request(IMX_GPIO_NR(3, 27), "GPIO3_IO27_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 27), 0);
+
+	gpio_request(IMX_GPIO_NR(3, 28), "GPIO3_IO28_LCD_UNUSED");
+	gpio_direction_output(IMX_GPIO_NR(3, 28), 0);
+}
+
+void do_enable_parallel_lcd(struct display_info_t const *dev)
+{
+	if (!is_cpu_type(MXC_CPU_MX6ULZ)) {
+		int board = get_board_indx();
+
+		enable_lcdif_clock(dev->bus, 1);
+
+		udelay(500);
+		setup_lcd_spi();
+		configure_lcd();
+
+		imx_iomux_v3_setup_multiple_pads(lcd_pads, ARRAY_SIZE(lcd_pads));
+
+		disable_unused_LCD_output();
+	}
+}
+
+
+struct display_info_t const displays[] = {{
+	.bus = MX6UL_LCDIF1_BASE_ADDR,
+	.addr = 0,
+	.pixfmt = 24,
+	.detect = NULL,
+	.enable	= do_enable_parallel_lcd,
+	.mode	= {
+		.name           = "NH-LCD",
+		.xres           = 320,
+		.yres           = 240,
+		.pixclock       = 35700, 
+		.left_margin    = 70,
+		.right_margin   = 17,
+		.upper_margin   = 13,
+		.lower_margin   = 9,
+		.hsync_len      = 1,
+		.vsync_len      = 1,
+		.sync		= 0,
+		.vmode		= FB_VMODE_NONINTERLACED
+} } };
+
+#else 
+
+void do_enable_parallel_lcd(struct display_info_t const *dev)
+{
+	if (!is_cpu_type(MXC_CPU_MX6ULZ)) {
+		int board = get_board_indx();
+
+		enable_lcdif_clock(dev->bus, 1);
+
+		imx_iomux_v3_setup_multiple_pads(lcd_pads, ARRAY_SIZE(lcd_pads));
+
+	}
+}
+
+
 static iomux_v3_cfg_t const lcd_pads[] = {
 	MX6_PAD_LCD_CLK__LCDIF_CLK | MUX_PAD_CTRL(LCD_PAD_CTRL),
 	MX6_PAD_LCD_ENABLE__LCDIF_ENABLE | MUX_PAD_CTRL(LCD_PAD_CTRL),
@@ -557,23 +761,6 @@ static iomux_v3_cfg_t const lcd_pads[] = {
 	MX6_PAD_LCD_DATA23__LCDIF_DATA23 | MUX_PAD_CTRL(LCD_PAD_CTRL),
 };
 
-
-void do_enable_parallel_lcd(struct display_info_t const *dev)
-{
-	if (!is_cpu_type(MXC_CPU_MX6ULZ)) {
-		int board = get_board_indx();
-
-		enable_lcdif_clock(dev->bus, 1);
-
-		imx_iomux_v3_setup_multiple_pads(lcd_pads, ARRAY_SIZE(lcd_pads));
-
-		imx_iomux_v3_setup_multiple_pads(pwm_pads[board], ARRAY_SIZE(pwm_pads[board]));
-
-	}
-}
-
-#define MHZ2PS(f)       (1000000/(f))
-
 struct display_info_t const displays[] = {{
 	.bus = MX6UL_LCDIF1_BASE_ADDR,
 	.addr = 0,
@@ -594,7 +781,11 @@ struct display_info_t const displays[] = {{
 		.sync		= 0,
 		.vmode		= FB_VMODE_NONINTERLACED
 } } };
+
+
+#endif /* CONFIG_SPI1_LCD_CONFIG */
 size_t display_count = ARRAY_SIZE(displays);
+
 #endif /* CONFIG_VIDEO_MXS */
 
 #ifdef CONFIG_SPLASH_SCREEN
