@@ -35,7 +35,9 @@
 
 #include "mx6var_eeprom_v2.h"
 
+#ifdef CONFIG_SPI1_LCD_CONFIG
 #include "NHD_3_5_320240MF_ATX_x_external_define.h" // Define for NH Display Configuration
+#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
