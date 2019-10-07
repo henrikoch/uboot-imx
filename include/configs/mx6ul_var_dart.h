@@ -153,7 +153,7 @@
 	"fdt_addr=0x83000000\0" \
 	"fdt_high=0xffffffff\0" \
 	"initrd_high=0xffffffff\0" \
-	"panel=VAR-WVGA-LCD\0" \
+	"panel=NH-LCD\0" \
 	"splashsourceauto=yes\0" \
 	"splashfile=/boot/splash.bmp\0" \
 	"splashimage=0x83100000\0" \
