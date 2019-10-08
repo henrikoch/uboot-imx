@@ -1,3 +1,41 @@
+# U-boot for IMX6ULL 
+
+## How to integrate to Yocto
+
+Update the recipes to use your remote repository instead of the default one:
+
+```
+cd ~/var-fslc-yocto/sources/meta-variscite-fslc/recipes-bsp/u-boot/
+```
+
+Create a u-boot-variscite.bbappend file:
+
+```
+gedit u-boot-variscite.bbappend
+```
+
+and append the following lines to it:
+
+```
+UBOOT_SRC = "https://gitlab.darix.pro/hd/uboot-imx.git;protocol=git"
+SRCBRANCH = "variscite-devboard-dart-6ul" (or any other created branch)
+SRCREV = "${AUTOREV}" (or the commit ID , ${AUTOREV} = latest commit)
+```
+
+Also update the u-boot-fw-utils recipe:
+
+```
+cp u-boot-variscite.bbappend u-boot-fw-utils.bbappend
+```
+
+## Ref
+
+
+* [VARISCITE - Customizing U-boot](http://variwiki.com/index.php?title=Yocto_Customizing_U-Boot&release=RELEASE_THUD_V1.1_DART-6UL) 
+* [VARISCITE - U-boot features](http://variwiki.com/index.php?title=Yocto_U-Boot_4.1.15_features&release=RELEASE_THUD_V1.1_DART-6UL) 
+
+
+
 #
 # (C) Copyright 2000 - 2013
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
